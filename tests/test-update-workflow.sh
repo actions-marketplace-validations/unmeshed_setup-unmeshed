@@ -19,7 +19,7 @@ ruby -e '
   File.write(ARGV[3], commit.fetch("run"))
 ' "$repo_dir/.github/workflows/update-cli-readme.yml" "$test_dir/detect.sh" "$test_dir/update.sh" "$test_dir/commit.sh"
 bash -n "$test_dir/commit.sh"
-if rg -q -- 'force|gh pr|pull-requests:' "$test_dir/commit.sh"; then
+if grep -Eq -- 'force|gh pr|pull-requests:' "$test_dir/commit.sh"; then
   echo 'Direct update must not force-push or use PR commands' >&2
   exit 1
 fi
@@ -48,7 +48,7 @@ cp "$repo_dir/README.md" "$test_dir/work/README.md"
 : > "$GITHUB_OUTPUT"
 (cd "$test_dir/work" && CLI_VERSION=1.5.0 bash "$test_dir/update.sh")
 [[ $(cat "$GITHUB_OUTPUT") == 'changed=true' ]]
-rg -q "version: '1.5.0'" "$test_dir/work/README.md"
+grep -Fq "version: '1.5.0'" "$test_dir/work/README.md"
 
 : > "$GITHUB_OUTPUT"
 (cd "$test_dir/work" && CLI_VERSION=1.5.0 bash "$test_dir/update.sh")
