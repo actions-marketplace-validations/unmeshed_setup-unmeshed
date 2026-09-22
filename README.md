@@ -16,9 +16,7 @@ jobs:
       - run: unmeshed version
 ```
 
-Before the `v1` tag is published, use `unmeshed/setup-unmeshed@main`. Use `@v1` after the release.
-
-The latest CLI release is installed by default. To select a published version:
+To install a specific CLI version:
 
 <!-- cli-version-example:start -->
 ```yaml
