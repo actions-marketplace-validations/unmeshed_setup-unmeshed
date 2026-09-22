@@ -1,0 +1,25 @@
+name: Setup Unmeshed CLI
+description: Install the Unmeshed CLI and add it to PATH
+author: Unmeshed
+branding:
+  icon: terminal
+  color: blue
+inputs:
+  version:
+    description: CLI version to install. Defaults to the latest release.
+    required: false
+    default: latest
+outputs:
+  binary-path:
+    description: Absolute path to the installed unmeshed executable.
+    value: ${{ steps.install.outputs.binary-path }}
+runs:
+  using: composite
+  steps:
+    - id: install
+      name: Install Unmeshed CLI
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        UNMESHED_VERSION: ${{ inputs.version }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"
