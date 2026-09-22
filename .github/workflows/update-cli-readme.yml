@@ -1,0 +1,128 @@
+name: Update CLI version example
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: update-cli-readme
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install latest Unmeshed CLI
+        uses: ./
+      - id: version
+        name: Read installed version
+        shell: bash
+        run: |
+          set -euo pipefail
+          output=$(unmeshed version)
+          CLI_OUTPUT="$output" python3 - <<'PY'
+          import os
+          import re
+
+          core = r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
+          pattern = re.compile(r'(?<![0-9A-Za-z.+-])v?(' + core + r')(?![0-9A-Za-z.+-])')
+          versions = set(pattern.findall(os.environ['CLI_OUTPUT']))
+          if len(versions) != 1:
+              raise SystemExit('Could not identify exactly one valid CLI version')
+          version = versions.pop()
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'version={version}\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(f'Installed Unmeshed CLI version: `{version}`\n')
+          PY
+
+  update:
+    needs: detect
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - id: readme
+        name: Update marked README example
+        env:
+          CLI_VERSION: ${{ needs.detect.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+
+          version = os.environ['CLI_VERSION']
+          core = r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
+          if not re.fullmatch(core, version):
+              raise SystemExit('Invalid CLI version from detection job')
+
+          path = Path('README.md')
+          text = path.read_text(encoding='utf-8')
+          start = '<!-- cli-version-example:start -->'
+          end = '<!-- cli-version-example:end -->'
+          if text.count(start) != 1 or text.count(end) != 1:
+              raise SystemExit('README version example markers are missing or duplicated')
+          before, rest = text.split(start, 1)
+          section, after = rest.split(end, 1)
+          matches = list(re.finditer(r"(?m)^([ \t]*version: ')([^'\r\n]+)(')[ \t]*$", section))
+          if len(matches) != 1:
+              raise SystemExit('Expected one version input in the marked README example')
+          match = matches[0]
+          updated_section = section[:match.start(2)] + version + section[match.end(2):]
+          updated = before + start + updated_section + end + after
+          changed = updated != text
+          if changed:
+              path.write_text(updated, encoding='utf-8')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'changed={str(changed).lower()}\n')
+          PY
+      - name: Commit updated example to default branch
+        if: steps.readme.outputs.changed == 'true'
+        env:
+          CLI_VERSION: ${{ needs.detect.outputs.version }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          base_sha=$(git rev-parse HEAD)
+          git add -- README.md
+          git commit -m "docs: update CLI example to $CLI_VERSION"
+
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/$BASE_BRANCH"; then
+              exit 0
+            fi
+            git fetch origin "$BASE_BRANCH"
+            remote_sha=$(git rev-parse FETCH_HEAD)
+            if [[ $remote_sha == "$base_sha" ]]; then
+              echo 'Push rejected without branch movement. Check branch protection and Actions write permissions.' >&2
+              exit 1
+            fi
+            if ! git rebase "$remote_sha"; then
+              git rebase --abort || true
+              echo 'Could not rebase README update onto the current default branch.' >&2
+              exit 1
+            fi
+            base_sha=$remote_sha
+          done
+          echo 'Default branch kept moving; README update was not pushed.' >&2
+          exit 1

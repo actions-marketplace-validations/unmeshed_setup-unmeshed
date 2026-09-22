@@ -20,11 +20,13 @@ Before the `v1` tag is published, use `unmeshed/setup-unmeshed@main`. Use `@v1` 
 
 The latest CLI release is installed by default. To select a published version:
 
+<!-- cli-version-example:start -->
 ```yaml
 - uses: unmeshed/setup-unmeshed@v1
   with:
     version: '1.4.0'
 ```
+<!-- cli-version-example:end -->
 
 ## Inputs and outputs
 
