@@ -30,6 +30,12 @@ To install a specific CLI version:
 
 `version` is optional and defaults to the latest CLI release.
 
+## Installation scope
+
+The CLI is installed in a fresh directory under `$RUNNER_TEMP` for the current job and added to `PATH` automatically for subsequent steps. The action does not modify `/usr/local/bin` or replace an existing system-wide installation. No uninstall step is required.
+
+On self-hosted runners, `$RUNNER_TEMP` must be writable. GitHub Actions empties it at the beginning and end of each job, provided the runner account can delete the files.
+
 ## Supported runners
 
 Linux and macOS on x64 and ARM64 are supported. Windows is not supported. The runner needs outbound HTTPS access to Unmeshed's download service.

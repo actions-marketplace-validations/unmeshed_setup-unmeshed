@@ -4,7 +4,9 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
-mkdir -p "$test_dir/mock-bin" "$test_dir/runner"
+mkdir -p "$test_dir/mock-bin" "$test_dir/system-bin" "$test_dir/runner temp"
+printf '#!/bin/sh\necho system-cli\n' > "$test_dir/system-bin/unmeshed"
+chmod +x "$test_dir/system-bin/unmeshed"
 
 cat > "$test_dir/mock-bin/curl" <<'MOCK_CURL'
 #!/usr/bin/env bash
@@ -40,29 +42,35 @@ done
 [[ ${CI:-} == true ]]
 [[ ${MOCK_INSTALLER_ERROR:-} != yes ]] || exit 1
 [[ ${MOCK_SKIP_BINARY:-} != yes ]] || exit 0
+if [[ ${MOCK_SYMLINK_BINARY:-} == yes ]]; then
+  ln -s "$SYSTEM_BINARY" "$install_dir/unmeshed"
+  exit 0
+fi
 printf '#!/bin/sh\necho verified-cli\n' > "$install_dir/unmeshed"
-chmod +x "$install_dir/unmeshed"
 MOCK_INSTALLER
 
-export PATH="$test_dir/mock-bin:$PATH" RUNNER_TEMP="$test_dir/runner"
+export PATH="$test_dir/mock-bin:$test_dir/system-bin:$PATH" RUNNER_TEMP="$test_dir/runner temp"
 export FIXTURE_INSTALLER="$test_dir/installer"
-export GITHUB_PATH="$test_dir/path"
+export GITHUB_PATH="$test_dir/github path" SYSTEM_BINARY="$test_dir/system-bin/unmeshed"
 
 run_success() {
   : > "$GITHUB_PATH"
   bash "$repo_dir/install.sh" > "$test_dir/log"
-  [[ $("$RUNNER_TEMP/unmeshed/bin/unmeshed") == verified-cli ]]
-  [[ $(cat "$GITHUB_PATH") == "$RUNNER_TEMP/unmeshed/bin" ]]
+  installed_dir=$(cat "$GITHUB_PATH")
+  [[ "$installed_dir" == "$RUNNER_TEMP"/unmeshed.*/bin ]]
+  [[ -x "$installed_dir/unmeshed" ]]
+  [[ $("$installed_dir/unmeshed") == verified-cli ]]
+  [[ $("$SYSTEM_BINARY") == system-cli ]]
 }
 
 run_failure() {
   : > "$GITHUB_PATH"
-  rm -f "$RUNNER_TEMP/unmeshed/bin/unmeshed"
   if bash "$repo_dir/install.sh" > "$test_dir/log" 2>&1; then
     echo 'Expected installation to fail' >&2
     exit 1
   fi
-  [[ ! -s $GITHUB_PATH ]]
+  [[ ! -s "$GITHUB_PATH" ]]
+  [[ $("$SYSTEM_BINARY") == system-cli ]]
 }
 
 for pair in 'Linux X64' 'Linux ARM64' 'macOS X64' 'macOS ARM64'; do
@@ -77,6 +85,7 @@ UNMESHED_VERSION='../latest' run_failure
 MOCK_HTTP_ERROR=yes run_failure
 MOCK_INSTALLER_ERROR=yes EXPECTED_VERSION=latest run_failure
 MOCK_SKIP_BINARY=yes EXPECTED_VERSION=latest run_failure
+MOCK_SYMLINK_BINARY=yes EXPECTED_VERSION=latest run_failure
 
 printf '#!/bin/sh\nexit 1\n' > "$test_dir/old-installer"
 FIXTURE_INSTALLER="$test_dir/old-installer" run_failure

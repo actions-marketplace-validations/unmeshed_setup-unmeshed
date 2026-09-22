@@ -18,7 +18,7 @@ if [[ ! $version =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   exit 1
 fi
 
-stage=$(mktemp -d "$RUNNER_TEMP/unmeshed.XXXXXXXX")
+stage=$(mktemp -d "$RUNNER_TEMP/unmeshed-download.XXXXXXXX")
 trap 'rm -rf "$stage"' EXIT
 
 if ! curl --fail --silent --show-error --location \
@@ -38,7 +38,8 @@ for flag in --install-dir --require-checksum; do
   fi
 done
 
-bin_dir="$RUNNER_TEMP/unmeshed/bin"
+install_root=$(mktemp -d "$RUNNER_TEMP/unmeshed.XXXXXXXX")
+bin_dir="$install_root/bin"
 mkdir -p "$bin_dir"
 args=(--install-dir "$bin_dir" --require-checksum)
 if [[ $version != latest ]]; then
@@ -53,10 +54,11 @@ if ! CI=true bash "$stage/install-cli.sh" "${args[@]}"; then
   echo 'Unmeshed installation failed. Check the selected version and runner network access.' >&2
   exit 1
 fi
-if [[ ! -x "$bin_dir/unmeshed" ]]; then
-  echo 'Unmeshed installation did not produce an executable.' >&2
+if [[ ! -f "$bin_dir/unmeshed" || -L "$bin_dir/unmeshed" ]]; then
+  echo 'Unmeshed installation did not produce a regular CLI binary.' >&2
   exit 1
 fi
+chmod +x "$bin_dir/unmeshed"
 
 printf '%s\n' "$bin_dir" >> "$GITHUB_PATH"
 echo "Installed Unmeshed CLI $version"
