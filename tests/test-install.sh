@@ -46,24 +46,23 @@ MOCK_INSTALLER
 
 export PATH="$test_dir/mock-bin:$PATH" RUNNER_TEMP="$test_dir/runner"
 export FIXTURE_INSTALLER="$test_dir/installer"
-export GITHUB_PATH="$test_dir/path" GITHUB_OUTPUT="$test_dir/output"
+export GITHUB_PATH="$test_dir/path"
 
 run_success() {
-  : > "$GITHUB_PATH"; : > "$GITHUB_OUTPUT"
+  : > "$GITHUB_PATH"
   bash "$repo_dir/install.sh" > "$test_dir/log"
   [[ $("$RUNNER_TEMP/unmeshed/bin/unmeshed") == verified-cli ]]
   [[ $(cat "$GITHUB_PATH") == "$RUNNER_TEMP/unmeshed/bin" ]]
-  [[ $(cat "$GITHUB_OUTPUT") == "binary-path=$RUNNER_TEMP/unmeshed/bin/unmeshed" ]]
 }
 
 run_failure() {
-  : > "$GITHUB_PATH"; : > "$GITHUB_OUTPUT"
+  : > "$GITHUB_PATH"
   rm -f "$RUNNER_TEMP/unmeshed/bin/unmeshed"
   if bash "$repo_dir/install.sh" > "$test_dir/log" 2>&1; then
     echo 'Expected installation to fail' >&2
     exit 1
   fi
-  [[ ! -s $GITHUB_PATH && ! -s $GITHUB_OUTPUT ]]
+  [[ ! -s $GITHUB_PATH ]]
 }
 
 for pair in 'Linux X64' 'Linux ARM64' 'macOS X64' 'macOS ARM64'; do

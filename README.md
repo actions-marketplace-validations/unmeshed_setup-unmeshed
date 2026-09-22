@@ -26,14 +26,9 @@ To install a specific CLI version:
 ```
 <!-- cli-version-example:end -->
 
-## Inputs and outputs
+## Input
 
-| Name | Type | Description |
-| --- | --- | --- |
-| `version` | Input | Optional CLI version. Defaults to `latest`. |
-| `binary-path` | Output | Absolute path to the installed executable. |
-
-To use the output, give the setup step an `id`, then reference `steps.<id>.outputs.binary-path` in a later step.
+`version` is optional and defaults to the latest CLI release.
 
 ## Supported runners
 

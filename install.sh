@@ -3,7 +3,6 @@ set -euo pipefail
 
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${GITHUB_PATH:?GITHUB_PATH is required}"
-: "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
 
 case "${RUNNER_OS:-}/${RUNNER_ARCH:-}" in
   Linux/X64|Linux/ARM64|macOS/X64|macOS/ARM64) ;;
@@ -60,5 +59,4 @@ if [[ ! -x "$bin_dir/unmeshed" ]]; then
 fi
 
 printf '%s\n' "$bin_dir" >> "$GITHUB_PATH"
-printf 'binary-path=%s\n' "$bin_dir/unmeshed" >> "$GITHUB_OUTPUT"
 echo "Installed Unmeshed CLI $version"
