@@ -24,7 +24,7 @@ The latest CLI release is installed by default. To select a published version:
 ```yaml
 - uses: unmeshed/setup-unmeshed@v1
   with:
-    version: '1.3.0'
+    version: '1.4.0'
 ```
 <!-- cli-version-example:end -->
 
